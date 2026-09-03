@@ -1,5 +1,5 @@
 import UserModel from "../models/user.models.js";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import redis from "../config/redis.db.js";
 
