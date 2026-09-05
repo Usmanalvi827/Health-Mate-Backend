@@ -1,48 +1,101 @@
-import MedicalRecord from "../models/medicalReport.js";
+import { reportQueue } from "../queues/queues.js";
+import cloudinary from "../config/cloudinary.js"; // tera cloudinary config
 
-async function fileUploaderController(req, res) {
+// Helper: RAM wale buffer ko Cloudinary pe bhejne ke liye
+const uploadBufferToCloudinary = (buffer, folder) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: folder, resource_type: "auto" }, // auto = image bhi, pdf bhi
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      },
+    );
+    stream.end(buffer); // balti ko cloudinary ki taraf ulta diya
+  });
+};
+
+export async function fileUploaderController(req, res) {
   try {
-    // console.log(req.file);
-    // console.log(req.body); // will have member, recordType, recordDate
-
     if (!req.file) {
       return res
         .status(400)
         .json({ success: false, message: "No file uploaded" });
     }
 
-    const { member, recordType, recordDate } = req.body;
+    // console.log("File aayi:", {
+    //   name: req.file.originalname,
+    //   sizeKB: (req.file.size / 1024).toFixed(2),
+    // });
 
+    const { member, recordType, recordDate } = req.body;
     if (!member) {
       return res
         .status(400)
         .json({ success: false, message: "member id is required" });
     }
 
-    // Detect fileType for your enum
-    const mimeType = req.file.mimetype; // e.g. image/png, application/pdf
-    const fileType = mimeType.includes("pdf") ? "pdf" : "image";
+    // 1. Pehle Cloudinary pe upload karo (ye 1-2 sec ka kaam hai)
+    const cloudResult = await uploadBufferToCloudinary(
+      req.file.buffer,
+      "medical-reports",
+    );
 
-    const newRecord = await MedicalRecord.create({
-      member: member, // send memberId from frontend
-      fileName: req.file.originalname,
-      fileUrl: req.file.path, // Cloudinary URL
-      cloudinaryPublicId: req.file.filename, // Cloudinary public_id
-      fileType: fileType,
-      recordType: recordType || "Other", // optional from frontend
-      recordDate: recordDate || new Date(),
-      aiStatus: "pending",
-    });
+    // 2. Ab Queue mein SIRF URL bhejo, poori file nahi
+    const job = await reportQueue.add(
+      "process-medical-report",
+      {
+        cloudinaryUrl: cloudResult.secure_url,
+        publicId: cloudResult.public_id,
+        originalname: req.file.originalname,
+        fileType: cloudResult.resource_type, // image / raw / pdf
+        member,
+        recordType: recordType || "Other",
+        recordDate: recordDate || new Date(),
+      },
+      {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 2000 },
+        removeOnComplete: 100, // 100 jobs ke baad auto delete, Redis halka rahega
+        removeOnFail: 50,
+      },
+    );
 
-    return res.status(201).json({
+    // 3. Fast response
+    return res.status(202).json({
       success: true,
-      message: "Medical record saved",
-      data: newRecord,
+      message: "Medical record queued for processing",
+      jobId: job.id,
+      url: cloudResult.secure_url, // frontend ko foran dikha de
+      status: "pending",
     });
   } catch (error) {
-    console.log("Error ==>>>", error.message);
+    console.error("Error ==>>>", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }
 
-export default fileUploaderController;
+// Polling endpoint to check status on Frontend
+export async function getJobStatusController(req, res) {
+  try {
+    const { jobId } = req.params;
+    // console.log("Checking status for jobId:", jobId);
+    const job = await reportQueue.getJob(jobId);
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    const state = await job.getState();
+    const result = job.returnvalue;
+
+    return res.json({
+      success: true,
+      jobId,
+      state, // "completed", "failed", "delayed", "active", "waiting"
+      result: result || null,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}

@@ -1,12 +1,19 @@
 import express from "express";
-import fileUploaderController from "../controllers/fileUpload.controller.js";
-import upload from "../middleware/fileUpload.middleware.js";
+import { uploadSingleFile } from "../middleware/fileUpload.middleware.js";
+import {
+  fileUploaderController,
+  getJobStatusController,
+} from "../controllers/fileUpload.controller.js";
 const fileUploadRouter = express.Router();
 
+// fieldName "medicalReport" Postman key name se EXACT match hona chahiye
 fileUploadRouter.post(
   "/upload-medical-report",
-  upload.single("medicalReport"),
+  uploadSingleFile("medicalReport"),
   fileUploaderController,
 );
+
+// 2. YE WALA ROUTE ADD KARO - status check ke liye
+fileUploadRouter.get("/medical-report/status/:jobId", getJobStatusController);
 
 export default fileUploadRouter;
