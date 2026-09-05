@@ -1,7 +1,6 @@
 import { reportQueue } from "../queues/queues.js";
-import cloudinary from "../config/cloudinary.js"; // tera cloudinary config
+import cloudinary from "../config/cloudinary.js"; 
 
-// Helper: RAM wale buffer ko Cloudinary pe bhejne ke liye
 const uploadBufferToCloudinary = (buffer, folder) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -35,13 +34,11 @@ export async function fileUploaderController(req, res) {
         .json({ success: false, message: "member id is required" });
     }
 
-    // 1. Pehle Cloudinary pe upload karo (ye 1-2 sec ka kaam hai)
     const cloudResult = await uploadBufferToCloudinary(
       req.file.buffer,
       "medical-reports",
     );
 
-    // 2. Ab Queue mein SIRF URL bhejo, poori file nahi
     const job = await reportQueue.add(
       "process-medical-report",
       {
@@ -54,19 +51,18 @@ export async function fileUploaderController(req, res) {
         recordDate: recordDate || new Date(),
       },
       {
-        attempts: 3,
+        attempts: 4,
         backoff: { type: "exponential", delay: 2000 },
-        removeOnComplete: 100, // 100 jobs ke baad auto delete, Redis halka rahega
+        removeOnComplete: 100, 
         removeOnFail: 50,
       },
     );
 
-    // 3. Fast response
     return res.status(202).json({
       success: true,
       message: "Medical record queued for processing",
       jobId: job.id,
-      url: cloudResult.secure_url, // frontend ko foran dikha de
+      url: cloudResult.secure_url, 
       status: "pending",
     });
   } catch (error) {
@@ -75,7 +71,6 @@ export async function fileUploaderController(req, res) {
   }
 }
 
-// Polling endpoint to check status on Frontend
 export async function getJobStatusController(req, res) {
   try {
     const { jobId } = req.params;
