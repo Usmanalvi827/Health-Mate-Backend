@@ -38,7 +38,7 @@ const familyMemberSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const FamilyMember = mongoose.model("familymembers", familyMemberSchema);
