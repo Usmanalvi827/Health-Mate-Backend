@@ -27,7 +27,6 @@ const medicalRecordSchema = new mongoose.Schema(
     fileType: {
       type: String,
       required: true,
-      enum: ["pdf", "image"],
     },
 
     recordType: {
@@ -50,18 +49,24 @@ const medicalRecordSchema = new mongoose.Schema(
 
     aiStatus: {
       type: String,
-      enum: ["pending", "processing", "completed", "failed"],
+      enum: [
+        "pending",
+        "extracting",
+        "extracted",
+        "needs_ocr",
+        "failed",
+        "done",
+      ],
       default: "pending",
     },
+    extractedText: { type: String },
+    aiError: { type: String },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-const MedicalRecord = mongoose.model(
-  "MedicalRecord",
-  medicalRecordSchema
-);
+const MedicalRecord = mongoose.model("MedicalRecord", medicalRecordSchema);
 
 export default MedicalRecord;
