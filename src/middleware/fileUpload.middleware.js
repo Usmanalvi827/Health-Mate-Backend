@@ -1,5 +1,5 @@
 import multer from "multer";
-import path from "path"; // <-- ADD THIS
+import path from "path";
 
 const storage = multer.memoryStorage();
 
@@ -14,29 +14,12 @@ const upload = multer({
     // console.log("mimetype:", file.mimetype);
     // console.log("ext:", path.extname(file.originalname).toLowerCase());
 
-    const allowedMimeTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/jpg",
-      "image/pjpeg",
-      "image/x-png",
-      "application/pdf",
-      "application/octet-stream" // Postman sometimes sends this, allow it then check extension
-    ];
-
     const allowedExtensions = [".jpg", ".jpeg", ".png", ".pdf"];
     const ext = path.extname(file.originalname).toLowerCase();
-
-    // FIX: Use OR logic, not AND. If extension is valid, allow it even if mimetype is weird
-    const isMimeValid = allowedMimeTypes.includes(file.mimetype);
-    const isExtValid = allowedExtensions.includes(ext);
-
-    // console.log("isMimeValid:", isMimeValid, "isExtValid:", isExtValid);
-
-    if (isExtValid) {
+    if (allowedExtensions.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error(`Invalid file type. Got mimetype: ${file.mimetype} and ext: ${ext}`));
+      cb(new Error("Invalid file type. Only JPG, PNG, and PDF files are allowed."));
     }
   },
 });
@@ -48,7 +31,10 @@ export const uploadSingleFile = (fieldName) => (req, res, next) => {
   uploadHandler(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       // Multer specific errors (e.g. File size limit exceeded)
-      return res.status(400).json({ success: false, message: `Upload error: ${err.message}` });
+      const message = err.code === "LIMIT_FILE_SIZE"
+        ? "File exceeds the 10 MB upload limit."
+        : `Upload error: ${err.message}`;
+      return res.status(400).json({ success: false, message });
     } else if (err) {
       // Custom errors (e.g. Invalid file type)
       return res.status(400).json({ success: false, message: err.message });

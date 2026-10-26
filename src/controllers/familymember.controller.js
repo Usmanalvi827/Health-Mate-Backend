@@ -116,8 +116,8 @@ async function updateFamilyMember(req, res) {
     const familyHead = req.user._id || req.user.id || req.user;
     const cacheKey = `family-members:${familyHead}`;
 
-    const updatedFamilyMember = await FamilyMember.findByIdAndUpdate(
-      id,
+    const updatedFamilyMember = await FamilyMember.findOneAndUpdate(
+      { _id: id, familyHead },
       {
         firstName: firstName?.trim(),
         lastName: lastName?.trim(),
@@ -163,7 +163,10 @@ async function deleteFamilyMember(req, res) {
     const familyHead = req.user._id || req.user.id || req.user;
     const cacheKey = `family-members:${familyHead}`;
 
-    const deletedMember = await FamilyMember.findByIdAndDelete(id);
+    const deletedMember = await FamilyMember.findOneAndDelete({
+      _id: id,
+      familyHead,
+    });
 
     if (!deletedMember) {
       return res.status(404).json({ success: false, message: "Member not found" });

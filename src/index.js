@@ -8,7 +8,7 @@ import cors from "cors";
 import authRouter from "./routes/auth.routes.js";
 import familyMemberRoute from "./routes/familymember.routes.js";
 import fileUploadRouter from "./routes/fileUpload.route.js";
-
+import aiAnalysisRouter from "./routes/aiAnalysis.route.js";
 
 const app = express();
 
@@ -27,6 +27,7 @@ app.use(cookieParser());
 app.use("/api/auth", authRouter);
 app.use("/api", familyMemberRoute);
 app.use("/api", fileUploadRouter);
+app.use("/api", aiAnalysisRouter);
 
 app.use((err, req, res, next) => {
   console.error("Global Error =>", err);

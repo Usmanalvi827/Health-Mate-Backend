@@ -4,16 +4,16 @@ import {
   fileUploaderController,
   getJobStatusController,
 } from "../controllers/fileUpload.controller.js";
+import authUser from "../middleware/auth.middleware.js";
 const fileUploadRouter = express.Router();
 
-// fieldName "medicalReport" Postman key name se EXACT match hona chahiye
 fileUploadRouter.post(
   "/upload-medical-report",
+  authUser,
   uploadSingleFile("medicalReport"),
   fileUploaderController,
 );
 
-// 2. YE WALA ROUTE ADD KARO - status check ke liye
-fileUploadRouter.get("/medical-report/status/:jobId", getJobStatusController);
+fileUploadRouter.get("/medical-report/status/:jobId", authUser, getJobStatusController);
 
 export default fileUploadRouter;
